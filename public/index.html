@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Submission System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- DEBUG PANEL -->
+    <div class="debug-panel" id="debugPanel" style="display: none;">
+        <div class="debug-header">
+            <div class="debug-title">
+                🔍 LINK VALIDATION DEBUGGER
+                <span id="debugStatus">READY</span>
+            </div>
+            <button class="debug-close" onclick="toggleDebugPanel()">×</button>
+        </div>
+        
+        <div class="api-key-input">
+            <label>GOOGLE API KEY:</label>
+            <input type="text" id="apiKeyInput" value="AIzaSyBd9bDuyGvrzIyN871nZ5ZaRWZziWEZ768" placeholder="Masukkan API Key">
+            <button onclick="updateApiKey()">Update Key</button>
+            <div class="test-buttons">
+                <button class="test-button" onclick="testApiKey()">Test API Key</button>
+                <button class="test-button" onclick="testDirectLink()">Test Direct Link</button>
+                <button class="test-button" onclick="clearDebugLogs()">Clear Logs</button>
+            </div>
+        </div>
+        
+        <div class="debug-progress-section">
+            <div class="debug-progress-bar">
+                <div class="debug-progress-fill" id="debugProgressFill"></div>
+            </div>
+            <div id="debugProgressText">Progress: 0%</div>
+            
+            <div id="debugStages">
+                <div class="debug-stage" id="debugStage1">
+                    <span>1. Cek Tipe Link</span>
+                    <span>⏳</span>
+                </div>
+                <div class="debug-stage" id="debugStage2">
+                    <span>2. Cek Akses API</span>
+                    <span>⏳</span>
+                </div>
+                <div class="debug-stage" id="debugStage3">
+                    <span>3. Fetch Konten</span>
+                    <span>⏳</span>
+                </div>
+                <div class="debug-stage" id="debugStage4">
+                    <span>4. Scan Kata</span>
+                    <span>⏳</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="link-preview" id="linkPreview" style="display: none;">
+            <strong>Link yang divalidasi:</strong>
+            <a id="currentLink" target="_blank"></a>
+        </div>
+        
+        <div id="debugLogs"></div>
+        
+        <div class="debug-raw-data" id="debugRawData" style="display: none;">
+            <strong>RAW RESPONSE:</strong>
+            <pre id="rawResponse"></pre>
+        </div>
+        
+        <div class="error-details" id="errorDetails" style="display: none;">
+            <strong>ERROR DETAILS:</strong>
+            <div id="errorContent"></div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-clipboard-list"></i> Order Submission System</h1>
+            <p class="subtitle">Submit order Anda dengan lengkap dan terstruktur</p>
+        </header>
+
+        <form id="orderForm" class="order-form">
+            <div class="form-section">
+                <h2><i class="fas fa-info-circle"></i> Informasi Order</h2>
+                
+                <input type="hidden" id="timestamp">
+                
+                <div class="form-group">
+                    <label for="bidang"><i class="fas fa-layer-group"></i> Bidang *</label>
+                    <select id="bidang" class="form-control" required oninput="validateField(this)">
+                        <option value="">-- Pilih Bidang --</option>
+                        <option value="public_relation">Public Relation</option>
+                        <option value="media_branding">Media Branding</option>
+                        <option value="research_technopreneur">Research Technopreneur</option>
+                        <option value="head_goverment">Head Goverment</option>
+                        <option value="sport_artistr">Sport Artistr</option>
+                        <option value="academic_achievement">Academic Achievement</option>
+                        <option value="student_resource">Student Resource Development</option>
+                        <option value="other">Lainnya</option>
+                    </select>
+                    <div class="field-validation"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tipeOrder"><i class="fas fa-tag"></i> Tipe Order *</label>
+                    <input type="text" id="tipeOrder" class="form-control" 
+                           placeholder="Contoh: Banner Instagram, Artikel Blog, Website" 
+                           required oninput="validateField(this)">
+                    <div class="field-validation"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ukuran"><i class="fas fa-ruler-combined"></i> Ukuran *</label>
+                    <div class="size-input-group">
+                        <div class="dimension-input">
+                            <input type="number" id="ukuranWidth" class="form-control size-input" 
+                                   placeholder="Lebar" step="0.01" min="0.01" required 
+                                   oninput="validateSizeField()">
+                            <span class="dimension-label">x</span>
+                            <input type="number" id="ukuranHeight" class="form-control size-input" 
+                                   placeholder="Tinggi" step="0.01" min="0.01" required 
+                                   oninput="validateSizeField()">
+                        </div>
+                        <select id="ukuranUnit" class="form-control unit-select" onchange="validateSizeField()">
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                            <option value="px">px</option>
+                            <option value="inch">inch</option>
+                            <option value="mm">mm</option>
+                        </select>
+                    </div>
+                    <div class="field-validation"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="referenceImages"><i class="fas fa-images"></i> Reference Images *</label>
+                    <div class="file-upload">
+                        <input type="file" id="referenceImages" class="file-input" 
+                               accept="image/png, image/jpeg, image/jpg, image/webp" multiple required 
+                               onchange="handleImageUpload(event)">
+                        <label for="referenceImages" class="file-label">
+                            <i class="fas fa-upload"></i> Pilih File Gambar (Maks 10 file, 10MB/file)
+                        </label>
+                        <span class="file-name" id="fileName">Belum ada file dipilih</span>
+                        <div class="upload-stats" id="uploadStats" style="display: none;">
+                            <span id="fileCount">0</span> file • 
+                            <span id="totalSize">0 MB</span>
+                        </div>
+                    </div>
+                    <div class="field-validation"></div>
+                    <div id="imagePreview" class="image-preview-grid empty"></div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2><i class="fas fa-link"></i> Konten & Referensi</h2>
+                
+                <div class="form-group">
+                    <label for="kontenType"><i class="fas fa-list"></i> Tipe Konten *</label>
+                    <div class="content-type-selector">
+                        <div class="type-option">
+                            <input type="radio" id="typeLink" name="kontenType" value="link" 
+                                   onchange="toggleContentType()" required>
+                            <label for="typeLink">
+                                <i class="fas fa-cloud"></i>
+                                <span>Link (Google Drive/Dokumen)</span>
+                            </label>
+                        </div>
+                        <div class="type-option">
+                            <input type="radio" id="typeText" name="kontenType" value="text" 
+                                   onchange="toggleContentType()">
+                            <label for="typeText">
+                                <i class="fas fa-align-left"></i>
+                                <span>Text/Deskripsi</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="field-validation" id="kontenTypeValidation"></div>
+                </div>
+                
+                <div class="google-docs-warning" id="googleDocsWarning" style="display: none;">
+                    <div class="warning-content">
+                        <i class="fab fa-google"></i>
+                        <div>
+                            <strong>Google Docs Terdeteksi</strong>
+                            <p>Untuk Google Docs, validasi konten terbatas tanpa Google API.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="linkInputGroup" style="display: none;">
+                    <label for="kontenLink"><i class="fas fa-link"></i> Konten Link *</label>
+                    <div class="input-with-button">
+                        <input type="url" id="kontenLink" class="form-control" 
+                               placeholder="https://docs.google.com/document/d/1Mzoc4qoH4L5z3k9KjX7v8wN2b1cR5tY6uI7pO0qA"
+                               oninput="validateLinkField(this)">
+                        <button type="button" class="btn-icon" onclick="validateLinkNow()" 
+                                title="Validasi Link Sekarang">
+                            <i class="fas fa-check-circle"></i>
+                        </button>
+                    </div>
+                    <div class="field-validation" id="linkValidation"></div>
+                    
+                    <div class="validation-progress" id="validationProgress" style="display: none;">
+                        <div class="progress-header">
+                            <span>Progress Validasi</span>
+                            <span id="validationProgressText">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-bar" id="validationProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="validation-stages" id="validationStages">
+                        <div class="stage" id="stage1">
+                            <span class="stage-icon">1</span>
+                            <span class="stage-text">Cek tipe link</span>
+                            <span class="stage-status"><i class="fas fa-clock"></i></span>
+                        </div>
+                        <div class="stage" id="stage2">
+                            <span class="stage-icon">2</span>
+                            <span class="stage-text">Cek akses API</span>
+                            <span class="stage-status"><i class="fas fa-clock"></i></span>
+                        </div>
+                        <div class="stage" id="stage3">
+                            <span class="stage-icon">3</span>
+                            <span class="stage-text">Fetch konten</span>
+                            <span class="stage-status"><i class="fas fa-clock"></i></span>
+                        </div>
+                        <div class="stage" id="stage4">
+                            <span class="stage-icon">4</span>
+                            <span class="stage-text">Scan kata</span>
+                            <span class="stage-status"><i class="fas fa-clock"></i></span>
+                        </div>
+                    </div>
+                    
+                    <div id="validationResult" class="validation-result"></div>
+                </div>
+                
+                <div class="form-group" id="textInputGroup" style="display: none;">
+                    <label for="kontenText"><i class="fas fa-align-left"></i> Deskripsi Konten *</label>
+                    <textarea id="kontenText" class="form-control" rows="4" 
+                              placeholder="Deskripsikan konten yang dibutuhkan..."
+                              oninput="validateTextField(this)"></textarea>
+                    <div class="char-counter">
+                        <span id="textCharCount">0</span>/2000 karakter
+                    </div>
+                    <div class="field-validation" id="textValidation"></div>
+                    
+                    <div class="text-validation-info">
+                        <p><i class="fas fa-info-circle"></i> Deskripsi harus detail dan jelas</p>
+                        <p><i class="fas fa-exclamation-triangle"></i> Pastikan deskripsi sudah lengkap dan final</p>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="caption"><i class="fas fa-comment-alt"></i> Caption *</label>
+                    <textarea id="caption" class="form-control" rows="3" 
+                              placeholder="Tambahkan caption atau deskripsi singkat..."
+                              required oninput="validateCaptionField(this)"></textarea>
+                    <div class="char-counter">
+                        <span id="charCount">0</span>/500 karakter
+                    </div>
+                    <div class="field-validation" id="captionValidation"></div>
+                    <div class="warning-hint" id="captionWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Pastikan caption sudah final dan lengkap</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2><i class="fas fa-calendar-alt"></i> Deadline & Kontak</h2>
+                
+                <div class="form-group">
+                    <label for="deadline"><i class="fas fa-clock"></i> Deadline *</label>
+                    <div class="datetime-group">
+                        <input type="date" id="deadlineDate" class="form-control date-input" 
+                               required oninput="validateDateTime()">
+                        <input type="time" id="deadlineTime" class="form-control time-input" 
+                               required oninput="validateDateTime()">
+                    </div>
+                    <div class="field-validation"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactName"><i class="fas fa-user"></i> Nama Kontak *</label>
+                    <input type="text" id="contactName" class="form-control" 
+                           placeholder="Nama lengkap" required oninput="validateField(this)">
+                    <div class="field-validation"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactNumber"><i class="fas fa-phone"></i> Nomor Telepon/WA *</label>
+                    <input type="tel" id="contactNumber" class="form-control" 
+                           placeholder="Contoh: 081234567890" 
+                           required oninput="validatePhoneField(this)">
+                    <div class="field-validation"></div>
+                </div>
+            </div>
+            
+            <div class="form-section submit-section">
+                <div class="form-summary">
+                    <div class="summary-item">
+                        <i class="fas fa-check-circle valid"></i>
+                        <span>Valid:</span>
+                        <span id="validCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <i class="fas fa-exclamation-circle invalid"></i>
+                        <span>Invalid:</span>
+                        <span id="invalidCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <i class="fas fa-clock pending"></i>
+                        <span>Pending:</span>
+                        <span id="pendingCount">11</span>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                        <i class="fas fa-redo"></i> Reset Form
+                    </button>
+                    <button type="submit" id="submitBtn" class="btn btn-primary" disabled>
+                        <i class="fas fa-paper-plane"></i> Submit Order
+                        <span id="submitSpinner" class="spinner"></span>
+                    </button>
+                    <button type="button" class="btn btn-debug" onclick="toggleDebugPanel()">
+                        <i class="fas fa-bug"></i> Debug
+                    </button>
+                </div>
+                
+                <div class="form-footer">
+                    <p><i class="fas fa-info-circle"></i> Semua field wajib diisi</p>
+                    <p><i class="fas fa-shield-alt"></i> Validasi otomatis setelah input</p>
+                </div>
+            </div>
+        </form>
+        
+        <div id="successModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2><i class="fas fa-check-circle success"></i> Order Submitted!</h2>
+                    <span class="close-modal" onclick="closeModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Order Anda telah berhasil disimpan dengan ID: <strong id="orderIdDisplay"></strong></p>
+                    <p>Anda akan dialihkan ke halaman SPS dalam <span id="countdown">5</span> detik...</p>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" onclick="closeModal()">
+                            <i class="fas fa-times"></i> Tutup
+                        </button>
+                        <button class="btn btn-primary" onclick="redirectToSPS()">
+                            <i class="fas fa-external-link-alt"></i> Ke Halaman SPS
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+        <!-- SCRIPTS -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- UTILITY FUNCTIONS FIRST -->
+    <script src="utils.js"></script>
+    <script src="debug-panel.js"></script>  <!-- DEBUG PANEL LOADED EARLY -->
+    <script src="../firebase-config.js"></script>
+    <script src="image-handler.js"></script>
+    <script src="link-validator.js"></script>  <!-- LINK VALIDATOR BEFORE FORM HANDLER -->
+    <script src="form-handler.js"></script>
+    
+    <script>
+    // GLOBAL FALLBACK FUNCTIONS - Defined immediately to prevent errors
+        window.toggleDebugPanel = window.toggleDebugPanel || function() {
+            const panel = document.getElementById('debugPanel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                console.log('Debug panel toggled');
+            }
+        };
+
+        window.validateLinkNow = window.validateLinkNow || function() {
+            const linkInput = document.getElementById('kontenLink');
+            const linkValue = linkInput ? linkInput.value.trim() : '';
+            
+            if (!linkValue) {
+                alert('Masukkan link terlebih dahulu');
+                if (linkInput) linkInput.focus();
+                return;
+            }
+            
+            console.log('validateLinkNow called, value:', linkValue);
+            
+            // Check if the real function is loaded
+            if (typeof validateLinkOnBlur === 'function') {
+                console.log('Calling validateLinkOnBlur');
+                validateLinkOnBlur(linkValue);
+            } else {
+                console.log('validateLinkOnBlur not loaded yet, using fallback');
+                // Simple fallback validation
+                const validationDiv = document.getElementById('linkValidation');
+                const resultDiv = document.getElementById('validationResult');
+                
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Link valid (fallback)</span>';
+                    validationDiv.className = 'field-validation valid';
+                }
+                
+                if (resultDiv) {
+                    resultDiv.className = 'validation-result valid';
+                    resultDiv.innerHTML = `
+                        <div class="result-header">
+                            <i class="fas fa-check-circle"></i>
+                            <div class="result-title">
+                                <h4>✅ Link Valid (Fallback Mode)</h4>
+                                <p>Link validation in fallback mode</p>
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.style.display = 'block';
+                }
+                
+                if (typeof updateSubmitButton === 'function') {
+                    updateSubmitButton();
+                }
+            }
+        };
+
+        window.resetForm = window.resetForm || function() {
+            const form = document.getElementById('orderForm');
+            if (form) {
+                form.reset();
+                alert('Form telah direset');
+            }
+        };
+
+        window.closeModal = window.closeModal || function() {
+            const modal = document.getElementById('successModal');
+            if (modal) modal.style.display = 'none';
+        };
+
+        window.redirectToSPS = window.redirectToSPS || function() {
+            window.location.href = 'https://your-sps-page.com/manual-add.html';
+        };
+
+        // Comprehensive forbidden keywords - HIDDEN FROM USER
+        const FORBIDDEN_WORDS = [
+            'menyusul', 'nanti', 'ntar', 'kosong', 'belum ada', 'coming soon',
+            'tbd', 'tba', 'to be determined', 'to be announced',
+            'draft', 'draf', 'konsep', 'concept',
+            'masih', 'sedang', 'proses', 'process', 'progress',
+            'akan', 'mau', 'ingin', 'rencana', 'plan',
+            'sementara', 'temporary', 'placeholder',
+            'blm', 'blom', 'blum', 'blm ada', 'blom ada',
+            'nnti', 'nnt', 'ntr', 'nti',
+            'soon', 'later', 'wait', 'waiting',
+            'incomplete', 'not complete', 'not finished', 'unfinished',
+            'partial', 'partially', 'belum selesai', 'tidak selesai',
+            'masih dikerjakan', 'sedang dikerjakan', 'dalam pengerjaan',
+            'akan dikerjakan', 'akan dibuat', 'akan diupdate',
+            'update nanti', 'update menyusul', 'update lagi',
+            'revisi', 'revision', 'perbaikan', 'improvement',
+            'dummy', 'sample', 'contoh', 'example', 'test',
+            'placeholder text', 'isi nanti', 'isi menyusul',
+            'isi dulu', 'isi nanti', 'isi menyusul',
+            'isi sendiri', 'isi aja', 'isi dong',
+            'isi disini', 'isi di sini', 'isi di bawah',
+            'diisi nanti', 'diisi menyusul', 'diisi kemudian',
+            'masih kosong', 'tidak ada', 'no content',
+            'empty', 'blank', 'null', 'none',
+            'besok', 'lusa', 'minggu depan', 'bulan depan',
+            'next week', 'next month', 'later date',
+            'kapan-kapan', 'suatu saat', 'some time',
+            'tunggu', 'wait', 'hold', 'pause',
+            'mungkin', 'probably', 'perhaps', 'maybe',
+            'kira-kira', 'around', 'approximately',
+            'kurang lebih', 'more or less', 'estimate',
+            'belum pasti', 'not sure', 'uncertain',
+            'tentatif', 'tentative', 'belum fix', 'not fixed'
+        ];
+
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('deadlineDate').valueAsDate = tomorrow;
+            document.getElementById('deadlineTime').value = '17:00';
+            document.getElementById('timestamp').value = new Date().toISOString();
+            
+            const dateInput = document.getElementById('deadlineDate');
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.setAttribute('min', today);
+            
+            initializeDragAndDrop();
+            updateValidationSummary();
+            
+            // Initialize debug panel if function exists
+            if (typeof initDebugPanel === 'function') {
+                initDebugPanel();
+            }
+            
+            console.log('Form initialized successfully');
+        });
+
+        function checkForForbiddenWords(text) {
+            if (!text || text.trim() === '') {
+                return { hasForbidden: false, message: '' };
+            }
+            
+            const lowerText = text.toLowerCase();
+            
+            for (const keyword of FORBIDDEN_WORDS) {
+                const wordRegex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (wordRegex.test(lowerText)) {
+                    return { 
+                        hasForbidden: true, 
+                        message: 'Terdapat kata yang menandakan konten belum final' 
+                    };
+                }
+                
+                if (keyword.includes(' ') && lowerText.includes(keyword.toLowerCase())) {
+                    return { 
+                        hasForbidden: true, 
+                        message: 'Terdapat kata yang menandakan konten belum final' 
+                    };
+                }
+            }
+            
+            return { hasForbidden: false, message: '' };
+        }
+
+        function validateTextField(textarea) {
+            const validationDiv = document.getElementById('textValidation');
+            if (!validationDiv) return;
+            
+            const charCount = textarea.value.length;
+            const charCountElement = document.getElementById('textCharCount');
+            if (charCountElement) charCountElement.textContent = charCount;
+            
+            const trimmedValue = textarea.value.trim();
+            
+            if (!trimmedValue) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Deskripsi wajib diisi</span>';
+                validationDiv.className = 'field-validation invalid';
+                textarea.classList.remove('text-warning');
+            } else if (charCount < 20) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Deskripsi terlalu pendek (min 20 karakter)</span>';
+                validationDiv.className = 'field-validation invalid';
+                textarea.classList.remove('text-warning');
+            } else if (charCount > 2000) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Deskripsi terlalu panjang (max 2000 karakter)</span>';
+                validationDiv.className = 'field-validation invalid';
+                textarea.value = textarea.value.substring(0, 2000);
+                textarea.classList.remove('text-warning');
+            } else {
+                const forbiddenCheck = checkForForbiddenWords(textarea.value);
+                
+                if (forbiddenCheck.hasForbidden) {
+                    validationDiv.innerHTML = '<span class="warning"><i class="fas fa-exclamation-triangle"></i> Periksa kembali deskripsi</span>';
+                    validationDiv.className = 'field-validation warning';
+                    textarea.classList.add('text-warning');
+                } else {
+                    validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Deskripsi valid</span>';
+                    validationDiv.className = 'field-validation valid';
+                    textarea.classList.remove('text-warning');
+                }
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function validateCaptionField(textarea) {
+            const validationDiv = document.getElementById('captionValidation');
+            const warningDiv = document.getElementById('captionWarning');
+            if (!validationDiv) return;
+            
+            const charCount = textarea.value.length;
+            const charCountElement = document.getElementById('charCount');
+            if (charCountElement) charCountElement.textContent = charCount;
+            
+            const trimmedValue = textarea.value.trim();
+            
+            if (!trimmedValue) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Caption wajib diisi</span>';
+                validationDiv.className = 'field-validation invalid';
+                textarea.classList.remove('text-warning');
+                if (warningDiv) warningDiv.style.display = 'none';
+            } else if (charCount > 500) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Caption terlalu panjang (max 500 karakter)</span>';
+                validationDiv.className = 'field-validation invalid';
+                textarea.value = textarea.value.substring(0, 500);
+                textarea.classList.remove('text-warning');
+                if (warningDiv) warningDiv.style.display = 'none';
+            } else {
+                const forbiddenCheck = checkForForbiddenWords(textarea.value);
+                
+                if (forbiddenCheck.hasForbidden) {
+                    validationDiv.innerHTML = '<span class="warning"><i class="fas fa-exclamation-triangle"></i> Periksa kembali caption</span>';
+                    validationDiv.className = 'field-validation warning';
+                    textarea.classList.add('text-warning');
+                    if (warningDiv) warningDiv.style.display = 'flex';
+                } else {
+                    validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Caption valid</span>';
+                    validationDiv.className = 'field-validation valid';
+                    textarea.classList.remove('text-warning');
+                    if (warningDiv) warningDiv.style.display = 'none';
+                }
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function validateField(input) {
+            if (!input || !input.parentElement) return;
+            
+            const validationDiv = input.parentElement.querySelector('.field-validation');
+            if (!validationDiv) return;
+            
+            if (!input.value.trim()) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Wajib diisi</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else {
+                validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Valid</span>';
+                validationDiv.className = 'field-validation valid';
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function resetForm() {
+            const form = document.getElementById('orderForm');
+            if (!form) return;
+            
+            form.reset();
+            clearAllImages();
+            
+            const linkInputGroup = document.getElementById('linkInputGroup');
+            const textInputGroup = document.getElementById('textInputGroup');
+            const validationResult = document.getElementById('validationResult');
+            const progressDiv = document.getElementById('validationProgress');
+            const googleWarning = document.getElementById('googleDocsWarning');
+            
+            if (linkInputGroup) linkInputGroup.style.display = 'none';
+            if (textInputGroup) textInputGroup.style.display = 'none';
+            if (validationResult) {
+                validationResult.innerHTML = '';
+                validationResult.style.display = 'none';
+            }
+            if (progressDiv) progressDiv.style.display = 'none';
+            if (googleWarning) googleWarning.style.display = 'none';
+            
+            const charCount = document.getElementById('charCount');
+            const textCharCount = document.getElementById('textCharCount');
+            if (charCount) charCount.textContent = '0';
+            if (textCharCount) textCharCount.textContent = '0';
+            
+            const kontenText = document.getElementById('kontenText');
+            const caption = document.getElementById('caption');
+            const captionWarning = document.getElementById('captionWarning');
+            
+            if (kontenText) kontenText.classList.remove('text-warning');
+            if (caption) caption.classList.remove('text-warning');
+            if (captionWarning) captionWarning.style.display = 'none';
+            
+            for (let i = 1; i <= 4; i++) {
+                const stage = document.getElementById('stage' + i);
+                if (stage) {
+                    stage.className = 'stage';
+                    const statusIcon = stage.querySelector('.stage-status');
+                    if (statusIcon) statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                }
+            }
+            
+            document.querySelectorAll('.field-validation').forEach(div => {
+                div.innerHTML = '';
+                div.className = 'field-validation';
+            });
+            
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const deadlineDate = document.getElementById('deadlineDate');
+            const deadlineTime = document.getElementById('deadlineTime');
+            const timestamp = document.getElementById('timestamp');
+            
+            if (deadlineDate) deadlineDate.valueAsDate = tomorrow;
+            if (deadlineTime) deadlineTime.value = '17:00';
+            if (timestamp) timestamp.value = new Date().toISOString();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) submitBtn.disabled = true;
+            
+            updateValidationSummary();
+            
+            if (typeof showNotification === 'function') {
+                showNotification('Form telah direset', 'info');
+            } else {
+                alert('Form telah direset');
+            }
+        }
+
+        function handleImageUpload(event) {
+            const input = document.getElementById('referenceImages');
+            if (!input) return;
+            
+            const files = Array.from(input.files);
+            const validationDiv = input.closest('.form-group')?.querySelector('.field-validation');
+            const preview = document.getElementById('imagePreview');
+            const fileName = document.getElementById('fileName');
+            const uploadStats = document.getElementById('uploadStats');
+            const fileCount = document.getElementById('fileCount');
+            const totalSize = document.getElementById('totalSize');
+            
+            if (preview) preview.innerHTML = '';
+            
+            if (files.length === 0) {
+                if (fileName) fileName.textContent = 'Belum ada file dipilih';
+                if (uploadStats) uploadStats.style.display = 'none';
+                if (preview) preview.classList.add('empty');
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> File gambar wajib diupload</span>';
+                    validationDiv.className = 'field-validation invalid';
+                }
+                updateValidationSummary();
+                updateSubmitButton();
+                return;
+            }
+            
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+            const maxSize = 10 * 1024 * 1024;
+            const maxFiles = 10;
+            
+            if (files.length > maxFiles) {
+                if (validationDiv) {
+                    validationDiv.innerHTML = `<span class="invalid"><i class="fas fa-times"></i> Maksimal ${maxFiles} file</span>`;
+                    validationDiv.className = 'field-validation invalid';
+                }
+                input.value = '';
+                if (preview) preview.classList.add('empty');
+                return;
+            }
+            
+            let hasError = false;
+            let errorMessage = '';
+            let totalSizeBytes = 0;
+            const validFiles = [];
+            
+            for (const file of files) {
+                if (!allowedTypes.includes(file.type)) {
+                    hasError = true;
+                    errorMessage = 'Hanya PNG/JPG/JPEG/WebP yang diizinkan';
+                    break;
+                }
+                
+                if (file.size > maxSize) {
+                    hasError = true;
+                    errorMessage = 'Ukuran maksimal 10MB per file';
+                    break;
+                }
+                
+                validFiles.push(file);
+                totalSizeBytes += file.size;
+            }
+            
+            if (hasError) {
+                if (validationDiv) {
+                    validationDiv.innerHTML = `<span class="invalid"><i class="fas fa-times"></i> ${errorMessage}</span>`;
+                    validationDiv.className = 'field-validation invalid';
+                }
+                input.value = '';
+                if (preview) preview.classList.add('empty');
+                updateValidationSummary();
+                updateSubmitButton();
+                return;
+            }
+            
+            if (fileName) {
+                fileName.textContent = validFiles.length > 2 ? 
+                    `${validFiles.length} file dipilih` : 
+                    validFiles.map(f => f.name).join(', ');
+            }
+            
+            if (fileCount) fileCount.textContent = validFiles.length;
+            if (totalSize) totalSize.textContent = formatFileSize(totalSizeBytes);
+            if (uploadStats) uploadStats.style.display = 'block';
+            
+            if (validationDiv) {
+                validationDiv.innerHTML = `<span class="valid"><i class="fas fa-check"></i> ${validFiles.length} gambar valid</span>`;
+                validationDiv.className = 'field-validation valid';
+            }
+            
+            if (preview) preview.classList.remove('empty');
+            
+            validFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                previewItem.dataset.index = index;
+                
+                previewItem.innerHTML = `
+                    <div class="image-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                `;
+                
+                if (preview) preview.appendChild(previewItem);
+                
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    
+                    img.onload = function() {
+                        previewItem.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview ${file.name}">
+                            <div class="preview-info">
+                                <span class="file-name">${truncateFileName(file.name)}</span>
+                                <span class="file-size">
+                                    <i class="fas fa-weight-hanging"></i>
+                                    ${formatFileSize(file.size)}
+                                </span>
+                            </div>
+                            <button type="button" class="remove-image" onclick="removeImage(${index})" 
+                                    title="Hapus gambar">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        
+                        updateValidationSummary();
+                        updateSubmitButton();
+                    };
+                    
+                    img.onerror = function() {
+                        previewItem.innerHTML = `
+                            <div class="preview-error">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Gagal memuat gambar</span>
+                            </div>
+                            <button type="button" class="remove-image" onclick="removeImage(${index})" 
+                                    title="Hapus gambar">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        updateValidationSummary();
+                        updateSubmitButton();
+                    };
+                };
+                
+                reader.onerror = function() {
+                    previewItem.innerHTML = `
+                        <div class="preview-error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>Gagal membaca file</span>
+                        </div>
+                        <button type="button" class="remove-image" onclick="removeImage(${index})" 
+                                title="Hapus gambar">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    updateValidationSummary();
+                    updateSubmitButton();
+                };
+                
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeImage(index) {
+            const input = document.getElementById('referenceImages');
+            if (!input) return;
+            
+            const files = Array.from(input.files);
+            
+            if (index >= 0 && index < files.length) {
+                files.splice(index, 1);
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
+                input.files = dataTransfer.files;
+                handleImageUpload({ target: input });
+            }
+        }
+
+        function clearAllImages() {
+            const input = document.getElementById('referenceImages');
+            if (input) {
+                input.value = '';
+                handleImageUpload({ target: input });
+            }
+        }
+
+        function truncateFileName(name, maxLength = 20) {
+            if (name.length <= maxLength) return name;
+            const extension = name.split('.').pop();
+            const nameWithoutExt = name.substring(0, name.length - extension.length - 1);
+            const truncated = nameWithoutExt.substring(0, maxLength - extension.length - 4);
+            return `${truncated}... .${extension}`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function initializeDragAndDrop() {
+            const fileUpload = document.querySelector('.file-upload');
+            const fileInput = document.getElementById('referenceImages');
+            const fileLabel = fileUpload?.querySelector('.file-label');
+            
+            if (!fileUpload || !fileLabel || !fileInput) return;
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, unhighlight, false);
+            });
+            
+            fileUpload.addEventListener('drop', handleDrop, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                fileUpload.classList.add('dragover');
+                fileLabel.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Lepaskan file di sini';
+                fileLabel.style.background = '#4338ca';
+            }
+            
+            function unhighlight() {
+                fileUpload.classList.remove('dragover');
+                fileLabel.innerHTML = '<i class="fas fa-upload"></i> Pilih File Gambar (Maks 10 file, 10MB/file)';
+                fileLabel.style.background = '';
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleImageUpload({ target: fileInput });
+                }
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('successModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function redirectToSPS() {
+            window.location.href = 'https://your-sps-page.com/manual-add.html';
+        }
+
+        function toggleContentType() {
+            const linkType = document.querySelector('input[name="kontenType"]:checked');
+            const linkGroup = document.getElementById('linkInputGroup');
+            const textGroup = document.getElementById('textInputGroup');
+            const validationDiv = document.getElementById('kontenTypeValidation');
+            const googleWarning = document.getElementById('googleDocsWarning');
+            
+            if (!linkType) {
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Pilih tipe konten</span>';
+                    validationDiv.className = 'field-validation invalid';
+                }
+                if (linkGroup) linkGroup.style.display = 'none';
+                if (textGroup) textGroup.style.display = 'none';
+                if (googleWarning) googleWarning.style.display = 'none';
+                return;
+            }
+            
+            if (validationDiv) {
+                validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Dipilih</span>';
+                validationDiv.className = 'field-validation valid';
+            }
+            if (googleWarning) googleWarning.style.display = 'none';
+            
+            if (linkType.value === 'link') {
+                if (linkGroup) linkGroup.style.display = 'block';
+                if (textGroup) textGroup.style.display = 'none';
+                setTimeout(() => {
+                    const kontenLink = document.getElementById('kontenLink');
+                    if (kontenLink) kontenLink.focus();
+                }, 100);
+            } else {
+                if (linkGroup) linkGroup.style.display = 'none';
+                if (textGroup) textGroup.style.display = 'block';
+                setTimeout(() => {
+                    const kontenText = document.getElementById('kontenText');
+                    if (kontenText) kontenText.focus();
+                }, 100);
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function validateSizeField() {
+            const widthInput = document.getElementById('ukuranWidth');
+            const heightInput = document.getElementById('ukuranHeight');
+            const unitInput = document.getElementById('ukuranUnit');
+            
+            if (!widthInput || !heightInput || !unitInput) return;
+            
+            const validationDiv = widthInput.closest('.form-group')?.querySelector('.field-validation');
+            if (!validationDiv) return;
+            
+            if (!widthInput.value || parseFloat(widthInput.value) <= 0) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Lebar harus lebih dari 0</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else if (!heightInput.value || parseFloat(heightInput.value) <= 0) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Tinggi harus lebih dari 0</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else if (!unitInput.value) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Satuan harus dipilih</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else {
+                validationDiv.innerHTML = `<span class="valid"><i class="fas fa-check"></i> Valid: ${widthInput.value} x ${heightInput.value} ${unitInput.value}</span>`;
+                validationDiv.className = 'field-validation valid';
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        let linkValidationTimeout;
+
+        function validateLinkField(input) {
+            const validationDiv = document.getElementById('linkValidation');
+            const googleWarning = document.getElementById('googleDocsWarning');
+            const progressBar = document.getElementById('validationProgress');
+            
+            if (!input.value.trim()) {
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Link wajib diisi</span>';
+                    validationDiv.className = 'field-validation invalid';
+                }
+                if (googleWarning) googleWarning.style.display = 'none';
+                if (progressBar) progressBar.style.display = 'none';
+                updateValidationSummary();
+                updateSubmitButton();
+                return;
+            }
+            
+            const isGoogleDocs = input.value.includes('docs.google.com') || 
+                                (input.value.includes('drive.google.com') && input.value.includes('/edit'));
+            
+            if (isGoogleDocs) {
+                if (googleWarning) googleWarning.style.display = 'block';
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="info"><i class="fab fa-google"></i> Google Docs terdeteksi</span>';
+                    validationDiv.className = 'field-validation info';
+                }
+                if (progressBar) progressBar.style.display = 'none';
+            } else {
+                if (googleWarning) googleWarning.style.display = 'none';
+            }
+            
+            if (!isValidUrl(input.value)) {
+                if (validationDiv) {
+                    validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Format URL tidak valid</span>';
+                    validationDiv.className = 'field-validation invalid';
+                }
+                updateValidationSummary();
+                updateSubmitButton();
+                return;
+            }
+            
+            if (linkValidationTimeout) {
+                clearTimeout(linkValidationTimeout);
+            }
+            
+            if (validationDiv) {
+                validationDiv.innerHTML = '<span class="checking"><i class="fas fa-spinner fa-spin"></i> Memeriksa...</span>';
+                validationDiv.className = 'field-validation checking';
+            }
+            
+            if (progressBar) {
+                progressBar.style.display = 'block';
+                const progressText = document.getElementById('validationProgressText');
+                const progressBarElement = document.getElementById('validationProgressBar');
+                if (progressText) progressText.textContent = '0%';
+                if (progressBarElement) progressBarElement.style.width = '0%';
+            }
+            
+            linkValidationTimeout = setTimeout(() => {
+                validateLinkNow();
+            }, 1500);
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function validatePhoneField(input) {
+            const validationDiv = input.parentElement?.querySelector('.field-validation');
+            if (!validationDiv) return;
+            
+            const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
+            
+            if (!input.value.trim()) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Nomor telepon wajib diisi</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else if (!phoneRegex.test(input.value)) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Format nomor Indonesia tidak valid</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else {
+                validationDiv.innerHTML = '<span class="valid"><i class="fas fa-check"></i> Nomor valid</span>';
+                validationDiv.className = 'field-validation valid';
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function validateDateTime() {
+            const dateInput = document.getElementById('deadlineDate');
+            const timeInput = document.getElementById('deadlineTime');
+            
+            if (!dateInput || !timeInput) return;
+            
+            const validationDiv = dateInput.closest('.form-group')?.querySelector('.field-validation');
+            if (!validationDiv) return;
+            
+            if (!dateInput.value || !timeInput.value) {
+                validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Tanggal dan waktu wajib diisi</span>';
+                validationDiv.className = 'field-validation invalid';
+            } else {
+                const deadline = new Date(`${dateInput.value}T${timeInput.value}`);
+                const now = new Date();
+                
+                if (deadline < now) {
+                    validationDiv.innerHTML = '<span class="invalid"><i class="fas fa-times"></i> Deadline tidak boleh di masa lalu</span>';
+                    validationDiv.className = 'field-validation invalid';
+                } else {
+                    const formattedDate = deadline.toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                    });
+                    const formattedTime = deadline.toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    validationDiv.innerHTML = `<span class="valid"><i class="fas fa-check"></i> Deadline: ${formattedDate} ${formattedTime}</span>`;
+                    validationDiv.className = 'field-validation valid';
+                }
+            }
+            
+            updateValidationSummary();
+            updateSubmitButton();
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function updateValidationSummary() {
+            const validCount = document.querySelectorAll('.field-validation.valid').length;
+            const invalidCount = document.querySelectorAll('.field-validation.invalid').length;
+            const warningCount = document.querySelectorAll('.field-validation.warning').length;
+            const checkingCount = document.querySelectorAll('.field-validation.checking').length;
+            const totalFields = document.querySelectorAll('.field-validation').length;
+            
+            const pendingCount = totalFields - validCount - invalidCount - warningCount - checkingCount;
+            
+            const validCountElement = document.getElementById('validCount');
+            const invalidCountElement = document.getElementById('invalidCount');
+            const pendingCountElement = document.getElementById('pendingCount');
+            
+            if (validCountElement) validCountElement.textContent = validCount;
+            if (invalidCountElement) invalidCountElement.textContent = invalidCount + warningCount;
+            if (pendingCountElement) pendingCountElement.textContent = pendingCount + checkingCount;
+        }
+
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            if (!submitBtn) return;
+            
+            const kontenType = document.querySelector('input[name="kontenType"]:checked');
+            const kontenTypeValidation = document.getElementById('kontenTypeValidation');
+            const kontenTypeValid = kontenTypeValidation?.classList.contains('valid');
+            
+            if (!kontenType || !kontenTypeValid) {
+                submitBtn.disabled = true;
+                return;
+            }
+            
+            let contentValid = false;
+            if (kontenType.value === 'link') {
+                const linkValidation = document.getElementById('linkValidation');
+                contentValid = linkValidation && (
+                    linkValidation.classList.contains('valid') || 
+                    linkValidation.classList.contains('info')
+                );
+            } else {
+                const textValidation = document.getElementById('textValidation');
+                contentValid = textValidation?.classList.contains('valid');
+            }
+            
+            const allFieldValidations = document.querySelectorAll('.field-validation:not(#kontenTypeValidation):not(#linkValidation):not(#textValidation)');
+            const allFieldsValid = Array.from(allFieldValidations).every(div => 
+                div.classList.contains('valid')
+            );
+            
+            submitBtn.disabled = !(kontenTypeValid && contentValid && allFieldsValid);
+        }
+
+        // Export functions to global scope
+        window.handleImageUpload = handleImageUpload;
+        window.removeImage = removeImage;
+        window.clearAllImages = clearAllImages;
+        window.formatFileSize = formatFileSize;
+        window.validateLinkField = validateLinkField;
+        window.validateLinkNow = validateLinkNow;
+        window.toggleContentType = toggleContentType;
+        window.resetForm = resetForm;
+        window.closeModal = closeModal;
+        window.redirectToSPS = redirectToSPS;
+        window.validateTextField = validateTextField;
+        window.validateCaptionField = validateCaptionField;
+        window.validateField = validateField;
+        window.validateSizeField = validateSizeField;
+        window.validatePhoneField = validatePhoneField;
+        window.validateDateTime = validateDateTime;
+        window.isValidUrl = isValidUrl;
+    </script>
+</body>
+</html
